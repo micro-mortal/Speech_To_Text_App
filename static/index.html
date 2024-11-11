@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Speech to Text and Text to Speech</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <h2>Speech to Text</h2>
+    <button id="recordBtn">Start Recording</button>
+    <p id="statusMessage"></p>
+    <div class="border"><p class="recognized">Recognized Text: <span id="recognizedText"></span></p></div>
+    
+
+    <h2>Text to Speech</h2>
+    <textarea class="border" id="ttsText" rows="4" cols="50" placeholder="Enter text to convert to speech"></textarea><br>
+    <button id="speakBtn">Convert to Speech</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/franc-min/5.1.0/franc-min.min.js"></script>
+
+    <script>
+        let isRecording = false;
+        const recordBtn = document.getElementById('recordBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const recognizedText = document.getElementById('recognizedText');
+
+        // Check if the SpeechRecognition API is supported
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            statusMessage.textContent = "Your browser does not support Speech Recognition API.";
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';  // Default to English for initial setup
+        recognition.interimResults = true;  // Allow real-time transcription
+        recognition.continuous = true;  // Enable continuous recognition
+        
+        recognition.onstart = () => {
+            isRecording = true;
+            recordBtn.textContent = 'Stop Recording';
+            statusMessage.textContent = 'Listening...';
+        };
+
+        recognition.onend = () => {
+            isRecording = false;
+            recordBtn.textContent = 'Start Recording';
+            statusMessage.textContent = 'Stopped listening.';
+        };
+
+        recognition.onresult = (event) => {
+            let transcript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                transcript += event.results[i][0].transcript;
+            }
+
+            recognizedText.textContent = transcript;  // Display recognized text in real-time
+
+            // Detect the language of the recognized text
+            detectLanguageAndTranslate(transcript);
+        };
+
+        recognition.onerror = (event) => {
+            statusMessage.textContent = "Error: " + event.error;
+        };
+
+        // Toggle recording on button click
+        recordBtn.addEventListener('click', () => {
+            if (!isRecording) {
+                recognition.start();
+            } else {
+                recognition.stop();
+            }
+        });
+
+        // Detect language and translate to English if it's Hindi
+        function detectLanguageAndTranslate(text) {
+            const language = franc(text);  // Detect language using franc-min
+
+            if (language === 'hin') {  // If the detected language is Hindi
+                statusMessage.textContent = "Recognizing Hindi, translating to English...";
+                recognizedText.textContent = "Translated: " + text;  // Just show Hindi as is for now
+            } else if (language === 'eng') {  // If the detected language is English
+                recognizedText.textContent = text;
+            } else {
+                recognizedText.textContent = text;  // Default to showing text as is
+            }
+        }
+
+        // Text to Speech functionality (unchanged)
+        document.getElementById('speakBtn').addEventListener('click', () => {
+            const text = document.getElementById('ttsText').value;
+
+            if (!text.trim()) {
+                statusMessage.textContent = "Please enter some text for TTS.";
+                return;
+            }
+
+            statusMessage.textContent = "Converting text to speech...";
+
+            // Speak the text as entered (no language translation)
+            const speech = new SpeechSynthesisUtterance(text);
+
+            // Detect if text is in Hindi and speak accordingly
+            if (/[\u0900-\u097F]/.test(text)) {
+                speech.lang = 'hi-IN';  // Speak in Hindi if the text contains Hindi characters
+            } else {
+                speech.lang = 'en-US';  // Default to English
+            }
+
+            speech.onend = () => {
+                statusMessage.textContent = "Audio ready!";
+            };
+
+            speech.onerror = (event) => {
+                statusMessage.textContent = "Error: Failed to convert text to speech.";
+                console.error(event.error);
+            };
+
+            window.speechSynthesis.speak(speech);  // Speak the text
+        });
+    </script>
+
+</body>
+</html>
